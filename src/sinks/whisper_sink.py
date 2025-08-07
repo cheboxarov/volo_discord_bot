@@ -22,7 +22,6 @@ WHISPER__PRECISION = "float32"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Set the model to evaluation mode (important for inference)
 logger = logging.getLogger(__name__)
 
 if DEVICE == "cuda":
@@ -40,10 +39,10 @@ class Speaker:
     A class to store the audio data and transcription for each user.
     """
 
-    def __init__(self, user: int, player: str, character: str, data, time=time.time()):
+    def __init__(self, user: int, userName: str, displayName: str, data, time=time.time()):
         self.user = user
-        self.player = player
-        self.character = character
+        self.userName = userName
+        self.displayName = displayName
         self.data = [data]
         self.first_word =time
         self.last_word = time
@@ -69,7 +68,7 @@ class WhisperSink(Sink):
         transcriber_type="local",
         *,
         filters=None,
-        player_map={},
+        user_map={},
         data_length=50000,
         max_speakers=-1,
     ):
@@ -92,7 +91,7 @@ class WhisperSink(Sink):
         self.speakers: List[Speaker] = []
         self.voice_queue = Queue()
         self.executor = ThreadPoolExecutor(max_workers=8)  # TODO: Adjust this
-        self.player_map = player_map
+        self.user_map = user_map
 
     def start_voice_thread(self, on_exception=None):
         def thread_exception_hook(args):
@@ -163,7 +162,7 @@ class WhisperSink(Sink):
                         threshold=0.8
                     ),
                     no_speech_threshold=0.6,
-                    initial_prompt="You are writing the transcriptions for a D&D game.",
+                    initial_prompt="You are transcribing a recording of a business conference call.",
                 )
 
                 segments = list(segments)
@@ -247,10 +246,10 @@ class WhisperSink(Sink):
                         self.max_speakers < 0 or len(self.speakers) <= self.max_speakers
                     ):
                         user_id = item[0]
-                        user_map = self.player_map.get(user_id, {})
-                        player = user_map.get("player")
-                        character = user_map.get("character")
-                        self.speakers.append(Speaker(user_id, player, character, item[1], item[2]))
+                        user_map_data = self.user_map.get(user_id, {})
+                        userName = user_map_data.get("userName")
+                        displayName = user_map_data.get("displayName")
+                        self.speakers.append(Speaker(user_id, userName, displayName, item[1], item[2]))
                     
                     
 
@@ -305,8 +304,8 @@ class WhisperSink(Sink):
             "begin": first_word_time[11:],       # First word time (HH:MM:SS.ss)
             "end": last_word_time[11:],         # Last word time (HH:MM:SS.ss)
             "user_id": speaker.user,                       # User ID
-            "player": speaker.player,
-            "character": speaker.character,
+            "userName": speaker.userName,
+            "displayName": speaker.displayName,
             "event_source": "Discord",                     # Event source
             "data": transcription                          # Transcription text
         }

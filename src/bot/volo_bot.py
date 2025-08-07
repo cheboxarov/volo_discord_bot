@@ -11,7 +11,7 @@ from src.sinks.whisper_sink import WhisperSink
 
 DISCORD_CHANNEL_ID = int(os.getenv("DISCORD_CHANNEL_ID"))
 TRANSCRIPTION_METHOD = os.getenv("TRANSCRIPTION_METHOD")
-PLAYER_MAP_FILE_PATH = os.getenv("PLAYER_MAP_FILE_PATH")
+USER_MAP_FILE_PATH = os.getenv("USER_MAP_FILE_PATH")
 
 
 logger = logging.getLogger(__name__)
@@ -25,15 +25,15 @@ class VoloBot(discord.Bot):
         self.guild_is_recording = {}
         self.guild_whisper_sinks = {}
         self.guild_whisper_message_tasks = {}
-        self.player_map = {}
+        self.user_map = {}
         self._is_ready = False
         if TRANSCRIPTION_METHOD == "openai":
             self.transcriber_type = "openai"
         else:
             self.transcriber_type = "local"
-        if PLAYER_MAP_FILE_PATH:
-            with open(PLAYER_MAP_FILE_PATH, "r", encoding="utf-8") as file:
-                self.player_map = yaml.safe_load(file)
+        if USER_MAP_FILE_PATH:
+            with open(USER_MAP_FILE_PATH, "r", encoding="utf-8") as file:
+                self.user_map = yaml.safe_load(file)
 
     
 
@@ -90,7 +90,7 @@ class VoloBot(discord.Bot):
             data_length=50000,
             max_speakers=10,
             transcriber_type=self.transcriber_type,
-            player_map=self.player_map,
+            user_map=self.user_map,
         )
 
         self.guild_to_helper[ctx.guild_id].vc.start_recording(
@@ -139,18 +139,18 @@ class VoloBot(discord.Bot):
             transcriptions.append(await transcriptions_queue.get())
         return transcriptions
 
-    async def update_player_map(self, ctx: discord.context.ApplicationContext):
-        player_map = {}
+    async def update_user_map(self, ctx: discord.context.ApplicationContext):
+        user_map = {}
         for member in ctx.guild.members:
-            player_map[member.id] = {
-                "player": member.name,
-                "character": member.display_name
+            user_map[member.id] = {
+                "userName": member.name,
+                "displayName": member.display_name
             }
-        logger.info(f"{str(player_map)}")
-        self.player_map.update(player_map)
-        if PLAYER_MAP_FILE_PATH:
-            with open(PLAYER_MAP_FILE_PATH, "w", encoding="utf-8") as file:
-                yaml.dump(self.player_map, file, default_flow_style=False, allow_unicode=True)
+        logger.info(f"{str(user_map)}")
+        self.user_map.update(user_map)
+        if USER_MAP_FILE_PATH:
+            with open(USER_MAP_FILE_PATH, "w", encoding="utf-8") as file:
+                yaml.dump(self.user_map, file, default_flow_style=False, allow_unicode=True)
 
     async def stop_and_cleanup(self):
         try:

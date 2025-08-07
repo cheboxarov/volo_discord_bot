@@ -1,0 +1,12 @@
+---
+# This file maps Discord user IDs to user names and their display names for transcription.
+# Use the user's Discord ID as the key.
+
+# Example:
+# 658568568568568658: # Discord ID
+#   userName: "Tom"
+#   displayName: "Tom (Marketing)"
+# 324234234324234234:
+#   userName: "Matthew"
+#   displayName: "Matthew (Lead Dev)"
+
