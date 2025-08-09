@@ -5,6 +5,8 @@ import os
 from collections import defaultdict
 
 import discord
+from discord import app_commands
+from discord.ext import commands
 import yaml
 
 from src.sinks.whisper_sink import WhisperSink
@@ -16,11 +18,16 @@ USER_MAP_FILE_PATH = os.getenv("USER_MAP_FILE_PATH")
 
 logger = logging.getLogger(__name__)
 
-class VoloBot(discord.Bot):
-    def __init__(self, loop):
+class VoloBot(commands.Bot):
+    def __init__(self):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.members = True
+        intents.voice_states = True
 
-        super().__init__(command_prefix="!", loop=loop,
-                         activity=discord.CustomActivity(name='Transcribing Audio to Text'))
+        super().__init__(command_prefix="!",
+                         activity=discord.CustomActivity(name='Transcribing Audio to Text'),
+                         intents=intents)
         self.guild_to_helper = {}
         self.guild_is_recording = {}
         self.guild_whisper_sinks = {}
@@ -38,12 +45,12 @@ class VoloBot(discord.Bot):
     
 
     async def on_ready(self):
+        await self.tree.sync()
         logger.info(f"Logged in as {self.user} to Discord.")
         self._is_ready = True
 
 
-    async def close_consumers(self):
-        await self.consumer_manager.close()
+    
 
     def _close_and_clean_sink_for_guild(self, guild_id: int):
         whisper_sink: WhisperSink | None = self.guild_whisper_sinks.get(
@@ -56,7 +63,7 @@ class VoloBot(discord.Bot):
             whisper_sink.close()
 
     
-    def start_recording(self, ctx: discord.context.ApplicationContext):
+    def start_recording(self, ctx: discord.Interaction):
         """
         Start recording audio from the voice channel. Create a whisper sink
         and start sending transcripts to the queue.
@@ -70,31 +77,34 @@ class VoloBot(discord.Bot):
         except Exception as e:
             logger.error(f"Error starting whisper sink: {e}")
 
-    def start_whisper_sink(self, ctx: discord.context.ApplicationContext):
+    async def retry_recording(self, ctx: discord.Interaction):
+        await asyncio.sleep(5)
+        self.start_recording(ctx)
+
+    def start_whisper_sink(self, ctx: discord.Interaction):
         guild_voice_sink = self.guild_whisper_sinks.get(ctx.guild_id, None)
         if guild_voice_sink:
             logger.debug(
                 f"Sink is already active for guild {ctx.guild_id}.")
             return
 
-        async def on_stop_record_callback(sink: WhisperSink, ctx):
+        def on_stop_record_callback(sink: WhisperSink):
             logger.debug(
-                f"{ctx.channel.guild.id} -> on_stop_record_callback")
-            self._close_and_clean_sink_for_guild(ctx.guild_id)
+                f"{sink.vc.guild.id} -> on_stop_record_callback")
+            self._close_and_clean_sink_for_guild(sink.vc.guild.id)
 
         transcript_queue = asyncio.Queue()
 
         whisper_sink = WhisperSink(
             transcript_queue,
-            self.loop,
             data_length=50000,
             max_speakers=10,
             transcriber_type=self.transcriber_type,
             user_map=self.user_map,
         )
 
-        self.guild_to_helper[ctx.guild_id].vc.start_recording(
-            whisper_sink, on_stop_record_callback, ctx)
+        self.guild_to_helper[ctx.guild_id].vc.start_receiving(
+            whisper_sink, done_callback=on_stop_record_callback)
 
         def on_thread_exception(e):
             logger.warning(
@@ -102,17 +112,17 @@ class VoloBot(discord.Bot):
             self._close_and_clean_sink_for_guild(ctx.guild_id)
 
             # retry in 5 seconds
-            self.loop.call_later(5, self.start_recording, ctx)
+            asyncio.create_task(self.retry_recording(ctx))
 
         whisper_sink.start_voice_thread(on_exception=on_thread_exception)
 
         self.guild_whisper_sinks[ctx.guild_id] = whisper_sink
 
-    def stop_recording(self, ctx: discord.context.ApplicationContext):
+    def stop_recording(self, ctx: discord.Interaction):
         vc = ctx.guild.voice_client
         if vc:
             self.guild_is_recording[ctx.guild_id] = False
-            vc.stop_recording()
+            vc.stop_receiving()
         guild_id = ctx.guild_id
         whisper_message_task = self.guild_whisper_message_tasks.get(
             guild_id, None)
@@ -121,11 +131,11 @@ class VoloBot(discord.Bot):
             whisper_message_task.cancel()
             del self.guild_whisper_message_tasks[guild_id]
 
-    def cleanup_sink(self, ctx: discord.context.ApplicationContext):
+    def cleanup_sink(self, ctx: discord.Interaction):
         guild_id = ctx.guild_id
         self._close_and_clean_sink_for_guild(guild_id)
 
-    async def get_transcription(self, ctx: discord.context.ApplicationContext):
+    async def get_transcription(self, ctx: discord.Interaction):
         # Get the transcription queue
         if not (self.guild_whisper_sinks.get(ctx.guild_id)):
             return
@@ -139,7 +149,7 @@ class VoloBot(discord.Bot):
             transcriptions.append(await transcriptions_queue.get())
         return transcriptions
 
-    async def update_user_map(self, ctx: discord.context.ApplicationContext):
+    async def update_user_map(self, ctx: discord.Interaction):
         user_map = {}
         for member in ctx.guild.members:
             user_map[member.id] = {

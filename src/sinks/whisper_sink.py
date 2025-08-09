@@ -17,18 +17,15 @@ from faster_whisper import WhisperModel
 from openai import OpenAI
 
 WHISPER_MODEL = "large-v3"
-WHISPER_LANGUAGE = "en"
+WHISPER_LANGUAGE = "ru"
 WHISPER__PRECISION = "float32"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 logger = logging.getLogger(__name__)
 
-if DEVICE == "cuda":
-    gpu_ram = torch.cuda.get_device_properties(0).total_memory/1024**3
-    if gpu_ram < 5.0:
-        logger.warning("GPU has less than 5GB of RAM. Switching to CPU.")
-        DEVICE = "cpu"
+if DEVICE == "cpu":
+    logger.warning("CUDA not available, running on CPU.")
 
 audio_model = WhisperModel(WHISPER_MODEL, device=DEVICE, compute_type=WHISPER__PRECISION)
 
@@ -64,7 +61,6 @@ class WhisperSink(Sink):
     def __init__(
         self,
         transcript_queue: asyncio.Queue,
-        loop: asyncio.AbstractEventLoop,
         transcriber_type="local",
         *,
         filters=None,
@@ -74,7 +70,6 @@ class WhisperSink(Sink):
     ):
         self.queue = transcript_queue
         self.transcription_output_queue = asyncio.Queue()
-        self.loop = loop
 
         if filters is None:
             filters = default_filters
@@ -162,7 +157,7 @@ class WhisperSink(Sink):
                         threshold=0.8
                     ),
                     no_speech_threshold=0.6,
-                    initial_prompt="You are transcribing a recording of a business conference call.",
+                    initial_prompt="Вы транскрибируете запись деловой конференции.",
                 )
 
                 segments = list(segments)
