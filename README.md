@@ -34,9 +34,9 @@ To set up and run this Discord bot, follow these steps:
 
    ```bash
    python -m venv venv
-   # Activate the virtual environment
-   # On Windows: venv\Scripts\activate
-   # On macOS/Linux: source venv/bin/activate
+  
+  
+  
    ```
 
 3. **Install Dependencies:**

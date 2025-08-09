@@ -85,7 +85,7 @@ class WhisperSink(Sink):
         self.running = True
         self.speakers: List[Speaker] = []
         self.voice_queue = Queue()
-        self.executor = ThreadPoolExecutor(max_workers=8)  # TODO: Adjust this
+        self.executor = ThreadPoolExecutor(max_workers=8) 
         self.user_map = user_map
 
     def start_voice_thread(self, on_exception=None):
@@ -119,10 +119,10 @@ class WhisperSink(Sink):
                 f"A sink thread was stopped for guild {self.vc.channel.guild.id}."
             )
     def check_audio_length(self, temp_file):
-        # Ensure the BytesIO is at the start
+       
         temp_file.seek(0)
 
-        # Open the BytesIO object as a WAV file
+       
         with wave.open(temp_file, 'rb') as wave_file:
             frames = wave_file.getnframes()
             frame_rate = wave_file.getframerate()
@@ -130,7 +130,7 @@ class WhisperSink(Sink):
         return duration
     def transcribe_audio(self, temp_file):
         try:
-            # Ensure that the audio is long enough to transcribe. If not, return an empty string
+           
             if self.check_audio_length(temp_file) <= 0.1:
                 return ""
             
@@ -144,7 +144,7 @@ class WhisperSink(Sink):
                 logger.info(f"OpenAI Transcription: {openai_transcription.text}")
                 return openai_transcription.text
             else:               
-                # The whisper model
+               
                 temp_file.seek(0)
                 segments, info = audio_model.transcribe(
                     temp_file,
@@ -189,7 +189,7 @@ class WhisperSink(Sink):
             wave_writer.writeframes(wav_data.getvalue())
 
         wav_io.seek(0)
-        # Check if the audio is long enough to transcribe, else return empty string
+       
         
         transcription = self.transcribe_audio(wav_io)
 
@@ -201,16 +201,16 @@ class WhisperSink(Sink):
         while not self.transcription_queue.empty():
             log_message = self.transcription_queue.get_nowait()
 
-            # Assuming log_message is a dictionary (or string in JSON format)
+           
             if isinstance(log_message, str):
-                log_message = json.loads(log_message)  # Convert from string to dictionary if needed
+                log_message = json.loads(log_message) 
 
-            # Extract only the desired fields from the log message
+           
             begin = log_message.get("begin", "Unknown begin")
             user_id = log_message.get("user_id", "Unknown user")
             data = log_message.get("data", "")
 
-            # Format the transcription entry with only the relevant fields
+           
             formatted_entry = (
                 f"Begin: {begin}\n"
                 f"User ID: {user_id}\n"
@@ -218,7 +218,7 @@ class WhisperSink(Sink):
                 "-------------------------\n"
             )
 
-            # Add the formatted entry to the transcription list
+           
             transcriptions.append(formatted_entry)
 
         return transcriptions
@@ -226,10 +226,10 @@ class WhisperSink(Sink):
     def insert_voice(self):
         while self.running:
             try:
-                # Process the voice_queue
+               
                 while not self.voice_queue.empty():
                     item = self.voice_queue.get()
-                    # Find or create a speaker
+                   
                     speaker = next(
                         (s for s in self.speakers if s.user == item[0]), None
                     )
@@ -249,12 +249,12 @@ class WhisperSink(Sink):
                     
 
 
-                # Transcribe audio for each speaker
-                # so this is interesting, as we arent checking the size of the audio stream, we are just transcribing it
+               
+               
                 future_to_speaker = {}
                 for speaker in self.speakers:
                     if (time.time() - speaker.last_word) < 1.5:
-                        # Lets make sure the user stopped talking.
+                       
                         continue
                     if speaker.new_bytes > 1:
                         speaker.new_bytes = 0
@@ -269,7 +269,7 @@ class WhisperSink(Sink):
                         transcription = future.result()
                         current_time = time.time()
                         speaker_new_bytes = speaker.new_bytes
-                        # Remove speaker once returned. 
+                       
                         for s in self.speakers[:]:
                             if speaker.user == s.user:
                                 self.write_transcription_log(s, transcription)
@@ -283,50 +283,50 @@ class WhisperSink(Sink):
 
     def check_speaker_timeouts(self, current_speaker, transcription):
 
-        # Copy the list to avoid modification during iteration
+       
         for speaker in self.speakers[:]:
             if current_speaker.user == speaker.user:
                 self.write_transcription_log(speaker, transcription)
                 self.speakers.remove(speaker)
     
     def write_transcription_log(self, speaker, transcription):
-        # Convert first_word and last_word Unix timestamps to datetime
+       
         first_word_time = datetime.fromtimestamp(speaker.first_word).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
         last_word_time = datetime.fromtimestamp(speaker.last_word).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
-        # Prepare the log data as a dictionary
+       
         log_data = {
-            "date": first_word_time[:10],                  # Date (from first_word)
-            "begin": first_word_time[11:],       # First word time (HH:MM:SS.ss)
-            "end": last_word_time[11:],         # Last word time (HH:MM:SS.ss)
-            "user_id": speaker.user,                       # User ID
+            "date": first_word_time[:10],                 
+            "begin": first_word_time[11:],      
+            "end": last_word_time[11:],        
+            "user_id": speaker.user,                      
             "userName": speaker.userName,
             "displayName": speaker.displayName,
-            "event_source": "Discord",                     # Event source
-            "data": transcription                          # Transcription text
+            "event_source": "Discord",                    
+            "data": transcription                         
         }
 
-        # Convert the log data to JSON
+       
         log_message = json.dumps(log_data)
 
-        # Get the transcription logger
+       
         transcription_logger = logging.getLogger('transcription')
-        # Log the message
+       
         transcription_logger.info(log_message)
-        # Place into queue for processing
+       
         self.transcription_output_queue.put_nowait(log_message)
     
 
     @Filters.container
     def write(self, data, user):
         """Gets audio data from discord for each user talking"""
-        # Discord will send empty bytes from when the user stopped talking to when the user starts to talk again.
-        # Its only the first data that grows massive and its only silent audio, so its trimmed.
+       
+       
 
         data_len = len(data)
         if data_len > self.data_length:
             data = data[-self.data_length :]
         write_time = time.time()
-        # Send bytes to be transcribed
+       
         self.voice_queue.put_nowait([user, data, write_time])
 
     def close(self):

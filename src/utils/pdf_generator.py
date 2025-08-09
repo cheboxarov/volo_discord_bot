@@ -25,29 +25,29 @@ async def pdf_generator(transcriptions, logo_path=None):
     :param logo_path: Optional path to a logo image to include in the PDF.
     :return: Path to the generated PDF file.
     """
-    # Ensure the logs directory exists
+   
     logs_dir = "./.logs/pdfs"
     os.makedirs(logs_dir, exist_ok=True)
 
-    # Create a temporary file in the logs directory
+   
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", dir=logs_dir) as tmp_file:
         pdf_file_path = tmp_file.name
 
-    # Set up the PDF document with reduced margins
+   
     doc = SimpleDocTemplate(pdf_file_path, pagesize=A4,
                             leftMargin=0.5 * inch, rightMargin=0.5 * inch, topMargin=0.5 * inch, bottomMargin=0.5 * inch)
     elements = []
 
-    # Title style with a professional font
+   
     title_style = ParagraphStyle(
         name="Title",
         fontName="Helvetica-Bold",
         fontSize=18,
-        alignment=1,  # Center the title
+        alignment=1, 
         textColor=colors.darkblue,
     )
 
-    # Content text style
+   
     content_style = ParagraphStyle(
         name="Content",
         fontName="Helvetica",
@@ -55,12 +55,12 @@ async def pdf_generator(transcriptions, logo_path=None):
         leading=12,
     )
 
-    # Title of the document
+   
     title = Paragraph("Conference Transcription", title_style)
     elements.append(title)
     elements.append(Spacer(1, 18))
 
-    # Column headers
+   
     header_data = [['Time', 'User', 'Message']]
     header_table = Table(header_data, colWidths=[1.5*inch, 2*inch, 4*inch])
     header_table.setStyle(TableStyle([
@@ -72,7 +72,7 @@ async def pdf_generator(transcriptions, logo_path=None):
     ]))
     elements.append(header_table)
 
-    # Add the transcriptions
+   
     for log_message in transcriptions:
         if isinstance(log_message, str):
             try:
@@ -97,7 +97,7 @@ async def pdf_generator(transcriptions, logo_path=None):
         ]))
         elements.append(row_table)
 
-    # Build the PDF
+   
     doc.build(elements, onFirstPage=add_background, onLaterPages=add_background)
 
     return pdf_file_path

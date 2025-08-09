@@ -3,7 +3,7 @@
 # Use the user's Discord ID as the key.
 
 # Example:
-# 658568568568568658: # Discord ID
+# 658568568568568658:
 #   userName: "Tom"
 #   displayName: "Tom (Marketing)"
 # 324234234324234234:

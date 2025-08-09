@@ -1,4 +1,4 @@
-#Discord Voice
+#Discord Voice (supports recording via sinks)
 py-cord[voice]
 
 aio-pika
@@ -18,12 +18,6 @@ pylint
 openai
 faster_whisper
 speechrecognition
-
-# torch support of cuda 12
---extra-index-url https://download.pytorch.org/whl/cu121
-torch
-torchvision
-torchaudio
 
 # torch cpu only support
 #--extra-index-url https://download.pytorch.org/whl/cpu
