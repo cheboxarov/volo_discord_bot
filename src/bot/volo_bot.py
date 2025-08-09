@@ -49,7 +49,26 @@ class VoloBot(discord.Bot):
         except Exception as e:
             logger.warning(f"Could not sync slash commands: {e}")
         logger.info(f"Logged in as {self.user} to Discord.")
+        logger.info("Updating user maps for all guilds...")
+        for guild in self.guilds:
+            await self._update_user_map_for_guild(guild)
+        logger.info("User maps updated.")
         self._is_ready = True
+
+    async def _update_user_map_for_guild(self, guild):
+        user_map = {}
+        for member in guild.members:
+            user_map[member.id] = {
+                "userName": member.name,
+                "displayName": member.display_name,
+            }
+        logger.info(f"Updating user map for guild {guild.name}")
+        self.user_map.update(user_map)
+        if USER_MAP_FILE_PATH:
+            with open(USER_MAP_FILE_PATH, "w", encoding="utf-8") as file:
+                yaml.dump(
+                    self.user_map, file, default_flow_style=False, allow_unicode=True
+                )
 
 
     
@@ -119,7 +138,7 @@ class VoloBot(discord.Bot):
 
     def stop_recording(self, ctx):
         vc = ctx.guild.voice_client
-        if vc and vc.is_recording():
+        if vc and vc.recording:
             self.guild_is_recording[ctx.guild.id] = False
             vc.stop_recording()
         guild_id = ctx.guild.id
@@ -149,17 +168,7 @@ class VoloBot(discord.Bot):
         return transcriptions
 
     async def update_user_map(self, ctx):
-        user_map = {}
-        for member in ctx.guild.members:
-            user_map[member.id] = {
-                "userName": member.name,
-                "displayName": member.display_name
-            }
-        logger.info(f"{str(user_map)}")
-        self.user_map.update(user_map)
-        if USER_MAP_FILE_PATH:
-            with open(USER_MAP_FILE_PATH, "w", encoding="utf-8") as file:
-                yaml.dump(self.user_map, file, default_flow_style=False, allow_unicode=True)
+        await self._update_user_map_for_guild(ctx.guild)
 
     async def stop_and_cleanup(self):
         try:

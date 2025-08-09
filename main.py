@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 from src.bot.helper import BotHelper
 from src.config.cliargs import CLIArgs
 from src.utils.commandline import CommandLine
-from src.utils.pdf_generator import pdf_generator
+from src.utils.txt_generator import txt_generator
 
 load_dotenv()
 DISCORD_BOT_TOKEN = os.getenv("DISCORD_BOT_TOKEN")
@@ -179,8 +179,8 @@ if __name__ == "__main__":
 
         await ctx.respond("Successfully disconnected from the voice channel.", ephemeral=False)
 
-    @bot.slash_command(name="generate_pdf", description="Generate a PDF of the transcriptions.")
-    async def generate_pdf(ctx: discord.ApplicationContext):
+    @bot.slash_command(name="generate_txt", description="Generate a TXT of the transcriptions.")
+    async def generate_txt(ctx: discord.ApplicationContext):
         guild_id = ctx.guild.id
         helper = bot.guild_to_helper.get(guild_id, None)
         if not helper:
@@ -188,16 +188,16 @@ if __name__ == "__main__":
             return
         transcription = await bot.get_transcription(ctx)
         if not transcription:
-            await ctx.respond("There are no transcriptions to generate a PDF from.", ephemeral=True)
+            await ctx.respond("There are no transcriptions to generate a TXT from.", ephemeral=True)
             return
-        pdf_file_path = await pdf_generator(transcription)
-        if os.path.exists(pdf_file_path):
+        txt_file_path = await txt_generator(transcription)
+        if os.path.exists(txt_file_path):
             try:
-                with open(pdf_file_path, "rb") as f:
-                    discord_file = discord.File(f, filename=f"conference_transcription.pdf")
+                with open(txt_file_path, "rb") as f:
+                    discord_file = discord.File(f, filename=f"conference_transcription.txt")
                     await ctx.respond("Here is the transcription from this session:", file=discord_file)
             finally:
-                os.remove(pdf_file_path)
+                os.remove(txt_file_path)
         else:
             await ctx.respond("No transcription file could be generated.", ephemeral=True)
 
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             discord.EmbedField(
                 name="/stop", value="Stop the transcription.", inline=True),
             discord.EmbedField(
-                name="/generate_pdf", value="Generate a PDF of the transcriptions.", inline=True),
+                name="/generate_txt", value="Generate a TXT of the transcriptions.", inline=True),
             discord.EmbedField(
                 name="/update_user_map", value="Update the user map.", inline=True),
             discord.EmbedField(
